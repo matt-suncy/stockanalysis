@@ -3,7 +3,7 @@ import yfinance as yf
 import plotext as plt
 
 
-ZERO_STANDARD_DEVIATION: float = 0.01
+SLOPE_THRESHOLD: float = 0.01
 
 
 def get_time_series(ticker: yf.Ticker, period: str, interval: str) -> tuple[any]:
@@ -68,7 +68,7 @@ def long_term_trading(m: float, n: float):
         interpretation = 'strong downward trend'
         action = 'Sell'
     
-    if -ZERO_STANDARD_DEVIATION < m <= ZERO_STANDARD_DEVIATION:
+    if -SLOPE_THRESHOLD < m <= SLOPE_THRESHOLD:
         color_code = 3
         interpretation = 'no trend'
         action = 'Hold'
