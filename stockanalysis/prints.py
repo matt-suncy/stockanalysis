@@ -28,16 +28,15 @@ def print_trading_summary_long_term(
         signal (str): Signal detected from moving averages.
         color_code (int): Color code for the moving averages signal.
     """
-    print(f"\n\033[9{color_code}m●\033[0m \033[1m{name}\033[0m LONG term trading (2 years)\n")        
-    print(f"Linear regression: y = mx + n")
-    print(f"m = {m}")
-    print(f"n = {n}\n")
+    print(f"\n\033[4m{name}\033[0m LONG term trading (2 years)\n")        
+    
+    print(f" - Close (now) = {close[-1]}\n")
+    print(f" - Linear regression: y = mx + n")
+    print(f" - m = {m}   n = {n}\n")
+    print(f" - SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}")
+    print(f" - SMA 200 (now) = {sma200[-1]}  EMA 100 (now) = {ema100[-1]}\n")
 
-    print(f"Close (now) = {close[-1]}\n")
-    print(f"SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}")
-    print(f"SMA 200 (now) = {sma200[-1]}  EMA 100 (now) = {ema100[-1]}\n")
-
-    print(f"\033[9{color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {signal}\n")
+    print(f" \033[9{color_code}m● Moving averages (SMA, EMA) detected signal:\033[0m {signal}\n")
 
 
 def print_trading_summary_mid_term(
@@ -85,16 +84,17 @@ def print_trading_summary_mid_term(
         rsi_interpretation (str): RSI interpretation.
         rsi_color_code (int): Color code for RSI signal.
     """
-    print(f"\n\033[9{mavg_color_code}m●\033[0m \033[1m{name}\033[0m MID term trading (18 months)\n")        
-    print(f"Close (now) = {close[-1]}\n")
-    print(f"SMA 50 (now) = {sma50[-1]}  EMA 20 (now) = {ema20[-1]}")
-    print(f"SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}\n")
-    print(f'Close derivative dc/dt = {close_time_series.first_derivative[-1]}')
-    print(f'Volume derivative dv/dt = {volume_time_series.first_derivative[-1]}\n')
-    print(f"MACD line (now) = {macd_line[-1]}")
-    print(f"RSI (now) = {rsi[-1]}\n")
+    print(f"\n\033[4m{name}\033[0m MID term trading (18 months)\n") 
+      
+    print(f" - Close (now) = {close[-1]}\n")
+    print(f" - SMA 50 (now) = {sma50[-1]}  EMA 20 (now) = {ema20[-1]}")
+    print(f" - SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}\n")
+    print(f' - Close derivative dc/dt = {close_time_series.first_derivative[-1]}')
+    print(f' - Volume derivative dv/dt = {volume_time_series.first_derivative[-1]}\n')
+    print(f" - MACD line (now) = {macd_line[-1]}")
+    print(f" - RSI (now) = {rsi[-1]}\n")
     
-    print(f"\033[9{mavg_color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {mavg_signal}")
-    print(f"\033[9{dt_color_code}mDecision tree:\033[0m {action}, {interpretation}")
-    print(f"\033[9{macd_color_code}mMACD:\033[0m {macd_signal}, {macd_interpretation}")
-    print(f"\033[9{rsi_color_code}mRSI:\033[0m {rsi_signal}, {rsi_interpretation}\n")
+    print(f" \033[9{mavg_color_code}m● Moving averages (SMA, EMA) detected signal:\033[0m {mavg_signal}")
+    print(f" \033[9{dt_color_code}m● Decision tree:\033[0m {action}, {interpretation}")
+    print(f" \033[9{macd_color_code}m● MACD:\033[0m {macd_signal}, {macd_interpretation}")
+    print(f" \033[9{rsi_color_code}m● RSI:\033[0m {rsi_signal}, {rsi_interpretation}\n")

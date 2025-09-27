@@ -94,16 +94,11 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     
     # Report
     print_trading_summary_long_term(
-        name=name,
-        close=close,
-        sma100=sma100,
-        sma200=sma200,
-        ema50=ema50,
-        ema100=ema100,
-        m=m,
-        n=n,
-        signal=signal,
-        color_code=color_code
+        name=name, close=close,
+        sma100=sma100, sma200=sma200, 
+        ema50=ema50, ema100=ema100,
+        m=m, n=n,
+        signal=signal, color_code=color_code
     )
     
     # Return indicators
@@ -221,27 +216,15 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     
     # Report
     print_trading_summary_mid_term(
-        name=name,
-        close=close,
-        sma50=sma50,
-        sma100=sma100,
-        ema20=ema20,
-        ema50=ema50,
-        close_time_series=close_time_series,
-        volume_time_series=volume_time_series,
-        macd_line=macd_line,
-        rsi=rsi,
-        mavg_signal=mavg_signal,
-        mavg_color_code=mavg_color_code,
-        action=action,
-        interpretation=interpretation,
+        name=name, close=close,
+        sma50=sma50, sma100=sma100, ema20=ema20, ema50=ema50,
+        close_time_series=close_time_series, volume_time_series=volume_time_series,
+        macd_line=macd_line, rsi=rsi,
+        mavg_signal=mavg_signal, mavg_color_code=mavg_color_code,
+        action=action, interpretation=interpretation,
         dt_color_code=dt_color_code,
-        macd_signal=macd_signal,
-        macd_interpretation=macd_interpretation,
-        macd_color_code=macd_color_code,
-        rsi_signal=rsi_signal,
-        rsi_interpretation=rsi_interpretation,
-        rsi_color_code=rsi_color_code
+        macd_signal=macd_signal, macd_interpretation=macd_interpretation, macd_color_code=macd_color_code,
+        rsi_signal=rsi_signal, rsi_interpretation=rsi_interpretation, rsi_color_code=rsi_color_code
     )
     
     # Return indicators
