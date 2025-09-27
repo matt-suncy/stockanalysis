@@ -2,77 +2,80 @@ import numpy as np
 import plotext as plt
 
 from timeseries import *
+from analysis import *
+from plots import *
 
 
 SLOPE_THRESHOLD: float = 0.01
 
 
-class TimeSeries:
-    
-    def __init__(self, values: np.array, window_size=3) -> None:
-        self.values = values
-        self.smooth_values = low_pass(values, window_size)
-        self.first_derivative = np.gradient(self.smooth_values)
-        self.second_derivative = np.gradient(self.first_derivative)
-
-
 def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
-    """Long-term market analysis using price and volume time series with
-    moving averages and linear regression.
+    """
+    Performs a long-term trading analysis of a financial instrument using 
+    historical price and volume data. 
 
-    Overview:
-    ----------
-    The goal of this function is to analyze the long-term trend of a stock
-    by combining smoothed data, linear regression, and moving averages.
+    This function downloads historical data from Yahoo Finance, applies 
+    technical indicators (SMA, EMA, linear regression), and evaluates 
+    trading signals based on long-term moving average crossovers.
 
-    Indicators used:
-    ----------------
-    - Linear Regression of smoothed prices:
-        Provides the general slope (trend) of the stock, ignoring short-term noise.
-    
-    - SMA 100:
-        Very long-term trend indicator. Smooth but reacts slower to price changes.
+    Workflow:
+        1. **Data acquisition**:
+            - Retrieves closing prices and volume for the specified 
+              ticker, period, and interval using `get_time_series`.
 
-    - SMA 200:
-        The most important long-term indicator.
-        Represents the fundamental price trend (approx. 1 year of trading).
-    
-    - EMA 50:
-        Shorter-term but still long horizon (approx. 2.5 months).
-        Reacts faster than SMA 200 and captures primary market movements.
+        2. **Time series preparation**:
+            - Builds smoothed time series for closing prices (100-period) 
+              and raw series for volume.
 
-    - EMA 100:
-        A compromise between EMA 50’s responsiveness and SMA 200’s stability.
+        3. **Linear regression**:
+            - Fits a regression line to the smoothed closing prices:
+              `y = m·x + n`
+            - `m`: slope of the regression (trend direction).
+            - `n`: intercept.
 
-    Trading signals:
-    ----------------
-    - Bullish trend:
-        Price > moving averages → Moving average acts as dynamic support.
-        Buy signal if price crosses above a moving average.
+        4. **Technical indicators**:
+            - SMA 100: Simple Moving Average over 100 periods.
+            - SMA 200: Simple Moving Average over 200 periods.
+            - EMA 50: Exponential Moving Average over 50 periods.
+            - EMA 100: Exponential Moving Average over 100 periods.
 
-    - Bearish trend:
-        Price < moving averages → Moving average acts as dynamic resistance.
-        Sell signal if price crosses below a moving average.
+        5. **Signal detection**:
+            - Uses `signal_moving_averages_long_term` to identify 
+              Golden Cross / Death Cross and price-vs-average crossovers.
+            - Outputs both a textual signal and a color code.
 
-    - Moving Average Crossovers:
-        These provide stronger trading signals:
-        
-        * Golden Cross:
-            Short-term EMA crosses above long-term SMA.
-            This indicates a strong buy signal (bullish reversal).
-        
-        * Death Cross:
-            Short-term EMA crosses below long-term SMA.
-            This indicates a strong sell signal (bearish reversal).
+        6. **Reporting**:
+            - Prints a color-coded summary including ticker name, 
+              regression equation, last close price, and current SMA/EMA values.
+            - Displays the detected moving average signal.
 
     Args:
-        ticker (yf.Ticker): Stock ticker object from yfinance.
-        period (str, optional): Time period for historical data. Default = "2y".
-        interval (str, optional): Data interval. Default = "1d".
+        ticker (yf.Ticker): Yahoo Finance ticker object representing 
+            the financial instrument.
+        period (str, optional): Time range for historical data. 
+            Default is "2y" (2 years).
+        interval (str, optional): Time step between data points. 
+            Default is "1d" (daily).
+
+    Returns:
+        dict: Analysis results containing:
+            - name (str): Short name of the ticker.
+            - dates (np.array): Historical dates.
+            - close_time_series (TimeSeries): Processed closing price series.
+            - volume_time_series (TimeSeries): Processed volume series.
+            - sma100 (np.array): SMA 100 values.
+            - sma200 (np.array): SMA 200 values.
+            - ema50 (np.array): EMA 50 values.
+            - ema100 (np.array): EMA 100 values.
+            - m (float): Slope of the linear regression line.
+            - n (float): Intercept of the linear regression line.
+
+    Example:
+        >>> import yfinance as yf
+        >>> result = long_term_trading(yf.Ticker("AAPL"))
     """
     # Get data
     dates, close, volume = get_time_series(ticker, period, interval)
-    dates_str = [d.strftime("%d/%m/%Y") for d in dates]
     
     # Time series
     close_time_series = TimeSeries(close, 100)
@@ -80,9 +83,6 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     
     # Linear regression
     m, n = linear_regression(close_time_series.smooth_values)
-
-    x = np.arange(len(close_time_series.smooth_values))
-    y_hat = m * x + n
     
     # SMA, EMA
     sma100 = SMA(close_time_series.values, 100)
@@ -91,46 +91,8 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     ema50 = EMA(close_time_series.values, 50)
     ema100 = EMA(close_time_series.values, 100)
     
-    # Signal detection
-    signal = "Hold"  # default
-    color_code = 3   # default
-    
-    # Golden Cross / Death Cross
-    if ema50[-2] < sma200[-2] and ema50[-1] > sma200[-1]:
-        signal = "Golden Cross (Strong Buy)"
-        color_code = 2
-    elif ema50[-2] > sma200[-2] and ema50[-1] < sma200[-1]:
-        signal = "Death Cross (Strong Sell)"
-        color_code = 1
-    
-    # Buy / Sell signals based on price crossing moving averages
-    elif close[-2] < ema50[-2] and close[-1] > ema50[-1]:
-        signal = "Buy (price crossed above EMA 50)"
-        color_code = 2
-    elif close[-2] > ema50[-2] and close[-1] < ema50[-1]:
-        signal = "Sell (price crossed below EMA 50)"
-        color_code = 1
-
-    elif close[-2] < ema100[-2] and close[-1] > ema100[-1]:
-        signal = "Buy (price crossed above EMA 100)"
-        color_code = 2
-    elif close[-2] > ema100[-2] and close[-1] < ema100[-1]:
-        signal = "Sell (price crossed below EMA 100)"
-        color_code = 1
-
-    elif close[-2] < sma100[-2] and close[-1] > sma100[-1]:
-        signal = "Buy (price crossed above SMA 100)"
-        color_code = 2
-    elif close[-2] > sma100[-2] and close[-1] < sma100[-1]:
-        signal = "Sell (price crossed below SMA 100)"
-        color_code = 1
-
-    elif close[-2] < sma200[-2] and close[-1] > sma200[-1]:
-        signal = "Buy (price crossed above SMA 200)"
-        color_code = 2
-    elif close[-2] > sma200[-2] and close[-1] < sma200[-1]:
-        signal = "Sell (price crossed below SMA 200)"
-        color_code = 1
+    # Moving averages signal detection
+    signal, color_code = signal_moving_averages_long_term(sma100, sma200, ema50, ema100, close)
     
     name = ticker.info['shortName']
     print(f"\n\033[9{color_code}m●\033[0m \033[1m{name}\033[0m LONG term trading (2 years)\n")        
@@ -142,238 +104,93 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     print(f"SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}")
     print(f"SMA 200 (now) = {sma200[-1]}  EMA 100 (now) = {ema100[-1]}\n")
 
-    print(f"\033[9{color_code}mDetected Signal:\033[0m {signal}\n")
+    print(f"\033[9{color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {signal}\n")
     
-    # Plot close and volume
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.plot(dates_str, y_hat, label="Linear Regression", color="red")
-    plt.title(f"{name} - Close")
-
-    plt.subplot(1, 2)
-    plt.bar(dates_str, volume_time_series.values, label="Volume")
-    plt.title(f"{name} - Volume")
-    plt.show()
-    print('')
-    
-    # Plots SMA y EMA
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.plot(dates_str, sma100, label="SMA 100", color="red")
-    plt.plot(dates_str, sma200, label="SMA 200", color="green")
-    plt.title(f"{name} - SMA")
-
-    plt.subplot(1, 2)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.plot(dates_str, ema50, label="EMA 50", color="red")
-    plt.plot(dates_str, ema100, label="EMA 100", color="green")
-    plt.title(f"{name} - EMA")
-    
-    plt.show()
-    print('')
-
-
-def solve_decision_tree(close_derivative: float, volume_derivative: float) -> tuple[str, str, int]:
-    action = ''
-    interpretation = ''
-    color_code: int = 3
-
-    if close_derivative > 0 and volume_derivative > 0:
-        color_code = 2
-        interpretation = 'strong trend'
-        action = 'Buy'
-    elif close_derivative > 0 and volume_derivative < 0:
-        interpretation = 'weak trend'
-        action = 'Hold position'
-    elif close_derivative < 0 and volume_derivative > 0:
-        color_code = 1
-        interpretation = 'strong downward trend'
-        action = 'Sell'
-    elif close_derivative < 0 and volume_derivative < 0:
-        interpretation = 'weak downward trend'
-        action = 'Hold position'
-
-    return action, interpretation, color_code
-
-def solve_sma_ema(
-    sma50: np.array, 
-    sma100: np.array, 
-    ema20: np.array, 
-    ema50: np.array, 
-    close: np.array
-    ) -> tuple[str, int]:
-    signal = 'Hold'
-    color_code = 3
-
-    # Golden / Death Cross (EMA50 vs SMA100)
-    if ema50[-2] < sma100[-2] and ema50[-1] > sma100[-1]:
-        signal = "Golden Cross (Strong Buy)"
-        color_code = 2
-    elif ema50[-2] > sma100[-2] and ema50[-1] < sma100[-1]:
-        signal = "Death Cross (Strong Sell)"
-        color_code = 1
-
-    # Buy / Sell signals based on price crossing EMA50
-    elif close[-2] < ema50[-2] and close[-1] > ema50[-1]:
-        signal = "Buy (price crossed above EMA 50)"
-        color_code = 2
-    elif close[-2] > ema50[-2] and close[-1] < ema50[-1]:
-        signal = "Sell (price crossed below EMA 50)"
-        color_code = 1
-
-    # Buy / Sell signals based on price crossing EMA20
-    elif close[-2] < ema20[-2] and close[-1] > ema20[-1]:
-        signal = "Buy (price crossed above EMA 20)"
-        color_code = 2
-    elif close[-2] > ema20[-2] and close[-1] < ema20[-1]:
-        signal = "Sell (price crossed below EMA 20)"
-        color_code = 1
-
-    # Buy / Sell signals based on price crossing SMA50
-    elif close[-2] < sma50[-2] and close[-1] > sma50[-1]:
-        signal = "Buy (price crossed above SMA 50)"
-        color_code = 2
-    elif close[-2] > sma50[-2] and close[-1] < sma50[-1]:
-        signal = "Sell (price crossed below SMA 50)"
-        color_code = 1
-
-    # Buy / Sell signals based on price crossing SMA100
-    elif close[-2] < sma100[-2] and close[-1] > sma100[-1]:
-        signal = "Buy (price crossed above SMA 100)"
-        color_code = 2
-    elif close[-2] > sma100[-2] and close[-1] < sma100[-1]:
-        signal = "Sell (price crossed below SMA 100)"
-        color_code = 1
-        
-    return signal, color_code
-
-def solve_macd(macd_line: np.array):
-    # Interpret MACD
-    macd_signal = 'Hold'  # Default
-    macd_interpretation = 'Neutral momentum'
-    color_code = 3
-
-    # Bullish signals    
-    if macd_line[-2] < 0 and macd_line[-1] > 0:
-        macd_signal = "Buy"
-        macd_interpretation = "MACD crossed above zero → bullish momentum"
-        color_code = 2
-    elif macd_line[-1] > 0 and macd_line[-1] > macd_line[-2]:
-        macd_signal = "Buy"
-        macd_interpretation = "MACD positive and rising → bullish trend"
-        color_code = 2
-
-    # Bearish signals
-    elif macd_line[-2] > 0 and macd_line[-1] < 0:
-        macd_signal = "Sell"
-        macd_interpretation = "MACD crossed below zero → bearish momentum"
-        color_code = 1
-    elif macd_line[-1] < 0 and macd_line[-1] < macd_line[-2]:
-        macd_signal = "Sell"
-        macd_interpretation = "MACD negative and falling → bearish trend"
-        color_code = 1
-        
-    return macd_signal, macd_interpretation, color_code
-
-
-def solve_rsi(rsi: np.array) -> tuple[str, str, int]:
-    rsi_signal = "Hold"  # por defecto
-    rsi_interpretation = "RSI neutral"
-    color_code = 3
-
-    if rsi[-1] > 70:
-        rsi_signal = "Sell"
-        rsi_interpretation = "RSI > 70 → Overbought, possible sell signal"
-        color_code = 1
-    elif rsi[-1] < 30:
-        rsi_signal = "Buy"
-        rsi_interpretation = "RSI < 30 → Oversold, possible buy signal"
-        color_code = 2
-        
-    return rsi_signal, rsi_interpretation, color_code
+    return {
+        "name" : name,
+        "dates" : dates,
+        "close_time_series" : close_time_series,
+        "volume_time_series" : volume_time_series,
+        "sma100" : sma100,
+        "sma200" : sma200,
+        "ema50" : ema50,
+        "ema100": ema100,
+        "m" : m,
+        "n" : n
+    }
 
 
 def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     """
-    Perform a comprehensive mid-term trading analysis for a given stock ticker using 
-    multiple technical indicators and decision-making heuristics over approximately 18 months.
+    Performs a mid-term trading analysis of a financial instrument using 
+    price, volume, and multiple technical indicators. 
 
-    The function performs the following steps and provides trading signals based on them:
+    This function downloads historical data from Yahoo Finance, calculates 
+    moving averages, MACD, and RSI, and evaluates trading signals using 
+    several complementary methods: moving average crossovers, a decision tree 
+    based on derivatives, MACD interpretation, and RSI thresholds.
 
-    1. Fetch historical stock data:
-       - Close prices: Used for trend and momentum analysis.
-       - Trading volume: Helps confirm the strength of price movements.
+    Workflow:
+        1. **Data acquisition**:
+            - Retrieves closing prices and volume for the specified 
+              ticker, period, and interval using `get_time_series`.
 
-    2. Compute smoothed time series and derivatives:
-       - Smooth the close prices to reduce noise and calculate the first derivative.
-       - Close derivative indicates the rate of price change:
-         - Positive → price is rising (uptrend)
-         - Negative → price is falling (downtrend)
-       - Volume derivative indicates the change in trading activity:
-         - Positive → increasing interest
-         - Negative → decreasing interest
+        2. **Time series preparation**:
+            - Constructs smoothed closing price series (50-period) and 
+              raw volume series.
+            - Computes first derivatives (dc/dt, dv/dt) to measure trend 
+              slopes and participation.
 
-    3. Decision Tree based on derivatives:
-       - Strong trend (Buy) if both close and volume derivatives are positive → bullish momentum
-       - Weak trend (Hold) if close is rising but volume is decreasing → trend may lack strength
-       - Strong downward trend (Sell) if close is falling and volume is increasing → strong bearish momentum
-       - Weak downward trend (Hold) if both close and volume derivatives are decreasing → mild downtrend
+        3. **Technical indicators**:
+            - SMA 50: Simple Moving Average over 50 periods (short to mid-term trend).
+            - SMA 100: Simple Moving Average over 100 periods (slower mid-term trend).
+            - EMA 20: Exponential Moving Average over 20 periods (fast momentum).
+            - EMA 50: Exponential Moving Average over 50 periods (smoother momentum).
+            - MACD line: Momentum indicator showing difference between fast 
+              and slow EMAs.
+            - RSI: Relative Strength Index, oscillator for overbought/oversold zones.
 
-    4. Calculate moving averages (SMA and EMA):
-       - SMA50 (50-day Simple Moving Average): Reflects medium-term trend
-       - SMA100 (100-day Simple Moving Average): Reflects long-term trend
-       - EMA20 (20-day Exponential Moving Average): More sensitive to recent price changes
-       - EMA50 (50-day Exponential Moving Average): Balances medium-term and recent price trends
+        4. **Signal detection**:
+            - Moving Averages: Uses `signal_moving_averages_mid_term` to detect 
+              crossovers and price-vs-average events.
+            - Decision Tree: Uses `solve_decision_tree` to classify market 
+              conditions based on dc/dt and dv/dt (price vs volume derivatives).
+            - MACD: Uses `macd_signal_mid_term` to detect bullish/bearish momentum.
+            - RSI: Uses `rsi_signal_mid_term` to detect overbought/oversold states.
 
-    5. Generate trading signals based on moving averages:
-       - Golden Cross (EMA50 crosses above SMA100): Strong Buy signal, bullish long-term trend
-       - Death Cross (EMA50 crosses below SMA100): Strong Sell signal, bearish long-term trend
-       - Price crossing EMA20, EMA50, SMA50, SMA100:
-         - Price crosses above → Buy signal (potential upward movement)
-         - Price crosses below → Sell signal (potential downward movement)
-
-    6. Calculate MACD (Moving Average Convergence Divergence):
-       - MACD is the difference between fast and slow EMAs
-       - Signals:
-         - MACD crosses above zero → bullish momentum (Buy)
-         - MACD positive and rising → bullish trend continuation (Buy)
-         - MACD crosses below zero → bearish momentum (Sell)
-         - MACD negative and falling → bearish trend continuation (Sell)
-
-    7. Calculate RSI (Relative Strength Index):
-       - RSI measures overbought or oversold conditions (0-100 scale)
-       - Signals:
-         - RSI > 70 → Overbought, possible Sell signal
-         - RSI < 30 → Oversold, possible Buy signal
-         - RSI between 30-70 → Neutral, Hold position
-
-    8. Print summary of current prices, indicator values, and trading signals:
-       - Displays SMA, EMA, MACD, RSI, derivatives, and decision tree results
-       - Color codes used for signals:
-         - 1 = Bearish / Sell
-         - 2 = Bullish / Buy
-         - 3 = Neutral / Hold
-
-    9. Plot visualizations:
-       - Close prices and trading volume
-       - Derivatives of close prices and volume
-       - SMA and EMA overlays for trend visualization
+        5. **Reporting**:
+            - Prints a color-coded summary including current close price, 
+              SMA/EMA values, price and volume derivatives, MACD, and RSI.
+            - Displays detected signals from all methods in a consolidated 
+              format.
 
     Args:
-        ticker (yf.Ticker): The Yahoo Finance Ticker object to analyze.
-        period (str, optional): Look-back period for historical data (default: "18mo").
-        interval (str, optional): Data interval (default: "1d").
+        ticker (yf.Ticker): Yahoo Finance ticker object representing 
+            the financial instrument.
+        period (str, optional): Time range for historical data. 
+            Default is "18mo" (18 months).
+        interval (str, optional): Time step between data points. 
+            Default is "1d" (daily).
 
     Returns:
-        None. Prints trading signals and plots visualizations.
+        dict: Analysis results containing:
+            - name (str): Short name of the ticker.
+            - dates (np.array): Historical dates.
+            - close_time_series (TimeSeries): Processed closing price series.
+            - volume_time_series (TimeSeries): Processed volume series.
+            - sma50 (np.array): SMA 50 values.
+            - sma100 (np.array): SMA 100 values.
+            - ema20 (np.array): EMA 20 values.
+            - ema50 (np.array): EMA 50 values.
+            - macd_line (np.array): MACD line values.
+            - rsi (np.array): RSI values.
+
+    Example:
+        >>> import yfinance as yf
+        >>> result = mid_term_trading(yf.Ticker("MSFT"))
     """
     # Get data
     dates, close, volume = get_time_series(ticker, period, interval)
-    dates_str = [d.strftime("%d/%m/%Y") for d in dates]
     
     # Time series
     close_time_series = TimeSeries(close, 50)
@@ -393,7 +210,7 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     rsi = RSI(close_time_series.smooth_values)
     
     # MAVG actions Buy / Sell signals based on price crossing moving averages
-    mavg_signal, mavg_color_code = solve_sma_ema(sma50, sma100, ema20, ema50, close)
+    mavg_signal, mavg_color_code = signal_moving_averages_mid_term(sma50, sma100, ema20, ema50, close)
     
     # Decision tree
     action, interpretation, dt_color_code = solve_decision_tree(
@@ -402,10 +219,10 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     )
     
     # MACD actions
-    macd_signal, macd_interpretation, macd_color_code = solve_macd(macd_line)
+    macd_signal, macd_interpretation, macd_color_code = macd_signal_mid_term(macd_line)
     
     # RSI actions
-    rsi_signal, rsi_interpretation, rsi_color_code = solve_rsi(rsi)
+    rsi_signal, rsi_interpretation, rsi_color_code = rsi_signal_mid_term(rsi)
 
     name = ticker.info['shortName']
     print(f"\n\033[9{mavg_color_code}m●\033[0m \033[1m{name}\033[0m MID term trading (18 months)\n")        
@@ -417,68 +234,23 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     print(f"MACD line (now) = {macd_line[-1]}")
     print(f"RSI (now) = {rsi[-1]}\n")
     
-    print(f"\033[9{mavg_color_code}mDetected Signal:\033[0m {mavg_signal}")
+    print(f"\033[9{mavg_color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {mavg_signal}")
     print(f"\033[9{dt_color_code}mDecision tree:\033[0m {action}, {interpretation}")
     print(f"\033[9{macd_color_code}mMACD:\033[0m {macd_signal}, {macd_interpretation}")
     print(f"\033[9{rsi_color_code}mRSI:\033[0m {rsi_signal}, {rsi_interpretation}\n")
     
-    # Plot close and volume
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.title(f"{name} - Close")
-
-    plt.subplot(1, 2)
-    plt.bar(dates_str, volume_time_series.values, label="Volume")
-    plt.title(f"{name} - Volume")
-    plt.show()
-    print('')
-    
-    # Plot close and volume derivatives
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, close_time_series.first_derivative, label="Close derivative", color="red")
-    plt.title(f"{name} - Close derivative")
-
-    plt.subplot(1, 2)
-    plt.bar(dates_str, volume_time_series.first_derivative, label="Volume derivative", color="red")
-    plt.title(f"{name} - Volume derivative")
-    plt.show()
-    print('')
-    
-    # Plots SMA y EMA
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.plot(dates_str, sma50, label="SMA 50", color="red")
-    plt.plot(dates_str, sma100, label="SMA 100", color="green")
-    plt.title(f"{name} - SMA")
-
-    plt.subplot(1, 2)
-    plt.plot(dates_str, close_time_series.values, label="Close", color="blue")
-    plt.plot(dates_str, ema20, label="EMA 20", color="red")
-    plt.plot(dates_str, ema50, label="EMA 50", color="green")
-    plt.title(f"{name} - EMA")
-    
-    plt.show()
-    print('')
-    
-    # Plots MACD y RSI
-    plt.subplots(1, 2)
-
-    plt.subplot(1, 1)
-    plt.plot(dates_str, macd_line, label="MACD", color="green")
-    plt.title(f"{name} - MACD")
-
-    plt.subplot(1, 2)
-    plt.plot(dates_str, rsi, label="RSI", color="green")
-    plt.title(f"{name} - RSI")
-    
-    plt.show()
-    print('')
+    return {
+        "name" : name,
+        "dates" : dates,
+        "close_time_series" : close_time_series,
+        "volume_time_series" : volume_time_series,
+        "sma50" : sma50,
+        "sma100" : sma100,
+        "ema20" : ema20,
+        "ema50" : ema50,
+        "macd_line" : macd_line,
+        "rsi" : rsi
+    }
     
     
 def short_term_trading(ticker: yf.Ticker, period="2mo", interval="1d") -> None:
@@ -498,17 +270,22 @@ def short_term_trading(ticker: yf.Ticker, period="2mo", interval="1d") -> None:
 
 if __name__ == "__main__":
     
+    # Plot conf
     plt.canvas_color("black")
     plt.axes_color("black")
     plt.ticks_color("white")
     
     # Parameters
-    print()
+    print('')
     
     ticker_code = input('\033[1mEnter the ticker (e.g., AAPL for Apple):\033[0m ')
     ticker = yf.Ticker(ticker_code)
     name: str = ticker.info["shortName"]
     
-    long_term_trading(ticker)
-    mid_term_trading(ticker)
+    # Analysis
+    dict_long = long_term_trading(ticker)
+    plot_long_term_trading(dict=dict_long)
+    
+    dict_mid = mid_term_trading(ticker)
+    plot_mid_term_trading(dict=dict_mid)
     

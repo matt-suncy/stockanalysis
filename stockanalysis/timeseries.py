@@ -2,6 +2,15 @@ import numpy as np
 import yfinance as yf
 
 
+class TimeSeries:
+    
+    def __init__(self, values: np.array, window_size=3) -> None:
+        self.values = values
+        self.smooth_values = low_pass(values, window_size)
+        self.first_derivative = np.gradient(self.smooth_values)
+        self.second_derivative = np.gradient(self.first_derivative)
+
+
 def get_time_series(ticker: yf.Ticker, period: str, interval: str) -> tuple[any]:
     """
     Returns the time series data (dates, closing prices, and volumes) 
@@ -86,36 +95,65 @@ def linear_regression(time_series: np.ndarray) -> tuple[float, float]:
 
 
 def SMA(time_series: np.array, period: int) -> np.array:
-    """_summary_
+    """
+    Computes the Simple Moving Average (SMA) of a 1D time series.
+
+    This function is a wrapper around `low_pass`, applying a moving 
+    average filter with a fixed window size (`period`). The SMA is a 
+    common technical analysis tool that smooths short-term fluctuations 
+    to highlight longer-term trends.
+
+    At the edges of the series, the window is automatically reduced to 
+    fit the available data (instead of padding or discarding values).
 
     Args:
-        time_series (np.array): _description_
+        time_series (numpy.ndarray): Input time series data as a 1D NumPy array.
+        period (int): Size of the moving average window. Must be a positive integer.
 
     Returns:
-        np.array: _description_
+        numpy.ndarray: Array of the same length as `time_series`, containing 
+        the smoothed values after applying the SMA.
+    
+    Example:
+        >>> import numpy as np
+        >>> data = np.array([1, 2, 3, 4, 5])
+        >>> SMA(data, 3)
+        array([1.5, 2.0, 3.0, 4.0, 4.5])
     """
     return low_pass(time_series, period)
 
 
 def EMA(time_series: np.ndarray, period: int) -> np.ndarray:
-    """Exponential Moving Average (EMA).
-    
-    EMA_t = α * X_t + (1 - α) * EMA_{t-1}
-        
+    """
+    Computes the Exponential Moving Average (EMA) of a 1D time series.
+
+    The EMA applies exponentially decreasing weights to past values, giving
+    more importance to recent data compared to the Simple Moving Average (SMA).
+
+    Formula:
+        EMA_t = α * X_t + (1 - α) * EMA_{t-1}
+
     where:
         α = 2 / (period + 1)
         X_t = value at time t
-    
-    The first EMA is initialized as the Simple Moving Average (SMA)
-    of the first `period` values:
-        EMA_{period-1} = mean(X_0, ..., X_{period-1})
-    
+
+    Initialization:
+        The first EMA value (at index period-1) is set to the SMA of the 
+        first `period` values.
+
     Args:
-        time_series (np.ndarray): Time series of prices/values.
-        period (int): Smoothing period.
-    
+        time_series (numpy.ndarray): Input time series data.
+        period (int): Look-back period for smoothing. Must be a positive integer.
+
     Returns:
-        np.ndarray: Series with EMA values (NaN before the first valid EMA).
+        numpy.ndarray: Array of EMA values with the same length as the input.
+                       Indices before the first valid EMA are set to NaN.
+
+    Example:
+        >>> import numpy as np
+        >>> data = np.array([10, 11, 12, 13, 14, 15])
+        >>> EMA(data, 3)
+        array([nan, nan, 11.0, 12.0, 13.0, 14.0])
     """
     alpha = 2 / (period + 1)
     
@@ -132,29 +170,35 @@ def EMA(time_series: np.ndarray, period: int) -> np.ndarray:
 
 def MACD(close: np.array, fast=12, slow=26, signal=9):
     """
-    Calculate the Moving Average Convergence Divergence (MACD) indicator.
+    Computes the Moving Average Convergence Divergence (MACD) indicator.
+
+    The MACD is a momentum oscillator that measures the relationship between 
+    two EMAs of a time series (typically closing prices).
 
     Formulas:
-        MACD line      = EMA_fast - EMA_slow
-        Signal line    = EMA(MACD line, period=signal)
-        Histogram      = MACD line - Signal line
+        - MACD line   = EMA_fast - EMA_slow
+        - Signal line = EMA(MACD line, period = signal)
+        - Histogram   = MACD line - Signal line
 
     Args:
-        close (np.ndarray): Array of closing prices.
+        close (numpy.ndarray): Closing prices or time series values.
         fast (int, optional): Period for the fast EMA. Default is 12.
         slow (int, optional): Period for the slow EMA. Default is 26.
         signal (int, optional): Period for the signal line EMA. Default is 9.
 
     Returns:
-        tuple of np.ndarray: 
-            - macd_line: The MACD line (fast EMA - slow EMA).
-            - signal_line: The signal line (EMA of the MACD line).
-            - histogram: Difference between the MACD line and the signal line.
-    
+        tuple of numpy.ndarray:
+            - macd_line (np.ndarray): Difference between fast and slow EMAs.
+            - signal_line (np.ndarray): EMA of the MACD line.
+            - histogram (np.ndarray): MACD line minus signal line.
+
     Notes:
-        - The function pads the shorter arrays to align lengths.
-        - The histogram is useful to visualize the strength and direction of momentum.
-        - Standard MACD parameters are fast=12, slow=26, signal=9.
+        - Standard parameters are (fast=12, slow=26, signal=9).
+        - The histogram is commonly used to assess momentum shifts.
+
+    Example:
+        >>> prices = np.array([10, 11, 12, 13, 14, 15, 16])
+        >>> macd_line, signal_line, hist = MACD(prices)
     """
     ema_fast = EMA(close, fast)
     ema_slow = EMA(close, slow)
@@ -172,24 +216,32 @@ def MACD(close: np.array, fast=12, slow=26, signal=9):
 
 def RSI(close: np.array, period=14) -> np.array:
     """
-    Calculate the Relative Strength Index (RSI) of a time series.
+    Computes the Relative Strength Index (RSI) of a 1D time series.
+
+    The RSI is a momentum oscillator that measures the speed and magnitude
+    of recent price changes, oscillating between 0 and 100.
 
     Formulas:
         RS  = Average Gain / Average Loss
         RSI = 100 - (100 / (1 + RS))
 
     Args:
-        close (array-like): Array of closing prices.
+        close (numpy.ndarray): Closing prices or time series values.
         period (int, optional): Look-back period for RSI calculation. Default is 14.
 
     Returns:
-        np.ndarray: Array of RSI values corresponding to each closing price.
-                    The first 'period' values are set to 50 (neutral).
+        numpy.ndarray: Array of RSI values. The first `period` values are
+                       initialized to 50 (neutral).
 
     Interpretation:
-        - RSI > 70 → Overbought (Sell signal)
-        - RSI < 30 → Oversold (Buy signal)
-        - RSI between 30 and 70 → Neutral / Hold
+        - RSI > 70 → Overbought (potential sell signal).
+        - RSI < 30 → Oversold (potential buy signal).
+        - 30 ≤ RSI ≤ 70 → Neutral / Hold.
+
+    Example:
+        >>> prices = np.array([10, 11, 12, 11, 10, 9, 8, 9, 10])
+        >>> RSI(prices, period=5)
+        array([50., 50., 50., 50., 50., 40., 30., 40., 50.])
     """
     deltas = np.diff(close)
     gains = np.where(deltas > 0, deltas, 0)
