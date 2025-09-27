@@ -3,10 +3,8 @@ import plotext as plt
 
 from timeseries import *
 from analysis import *
+from prints import *
 from plots import *
-
-
-SLOPE_THRESHOLD: float = 0.01
 
 
 def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
@@ -75,16 +73,16 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
         >>> result = long_term_trading(yf.Ticker("AAPL"))
     """
     # Get data
+    name = ticker.info['shortName']
     dates, close, volume = get_time_series(ticker, period, interval)
     
     # Time series
     close_time_series = TimeSeries(close, 100)
     volume_time_series = TimeSeries(volume)
     
-    # Linear regression
+    # Indicators
     m, n = linear_regression(close_time_series.smooth_values)
     
-    # SMA, EMA
     sma100 = SMA(close_time_series.values, 100)
     sma200 = SMA(close_time_series.values, 200)
     
@@ -94,18 +92,21 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     # Moving averages signal detection
     signal, color_code = signal_moving_averages_long_term(sma100, sma200, ema50, ema100, close)
     
-    name = ticker.info['shortName']
-    print(f"\n\033[9{color_code}m●\033[0m \033[1m{name}\033[0m LONG term trading (2 years)\n")        
-    print(f"Linear regression: y = mx + n")
-    print(f"m = {m}")
-    print(f"n = {n}\n")
-    # Print report
-    print(f"Close (now) = {close[-1]}\n")
-    print(f"SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}")
-    print(f"SMA 200 (now) = {sma200[-1]}  EMA 100 (now) = {ema100[-1]}\n")
-
-    print(f"\033[9{color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {signal}\n")
+    # Report
+    print_trading_summary_long_term(
+        name=name,
+        close=close,
+        sma100=sma100,
+        sma200=sma200,
+        ema50=ema50,
+        ema100=ema100,
+        m=m,
+        n=n,
+        signal=signal,
+        color_code=color_code
+    )
     
+    # Return indicators
     return {
         "name" : name,
         "dates" : dates,
@@ -190,55 +191,60 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
         >>> result = mid_term_trading(yf.Ticker("MSFT"))
     """
     # Get data
+    name = ticker.info['shortName']
     dates, close, volume = get_time_series(ticker, period, interval)
     
     # Time series
     close_time_series = TimeSeries(close, 50)
     volume_time_series = TimeSeries(volume)
     
-    # SMA, EMA
+    # Indicators
     sma50 = SMA(close_time_series.smooth_values, 50)
     sma100 = SMA(close_time_series.values, 100)
     
     ema20 = EMA(close_time_series.values, 20)
     ema50 = EMA(close_time_series.values, 50)
     
-    # MACD
     macd_line, _, _ = MACD(close_time_series.smooth_values)
-    
-    # RSI
     rsi = RSI(close_time_series.smooth_values)
     
-    # MAVG actions Buy / Sell signals based on price crossing moving averages
+    # Signal detections
     mavg_signal, mavg_color_code = signal_moving_averages_mid_term(sma50, sma100, ema20, ema50, close)
     
-    # Decision tree
     action, interpretation, dt_color_code = solve_decision_tree(
         close_time_series.first_derivative[-1],
         volume_time_series.first_derivative[-1]
     )
     
-    # MACD actions
     macd_signal, macd_interpretation, macd_color_code = macd_signal_mid_term(macd_line)
-    
-    # RSI actions
     rsi_signal, rsi_interpretation, rsi_color_code = rsi_signal_mid_term(rsi)
-
-    name = ticker.info['shortName']
-    print(f"\n\033[9{mavg_color_code}m●\033[0m \033[1m{name}\033[0m MID term trading (18 months)\n")        
-    print(f"Close (now) = {close[-1]}\n")
-    print(f"SMA 50 (now) = {sma50[-1]}  EMA 20 (now) = {ema20[-1]}")
-    print(f"SMA 100 (now) = {sma100[-1]}  EMA 50 (now) = {ema50[-1]}\n")
-    print(f'Close derivative dc/dt = {close_time_series.first_derivative[-1]}')
-    print(f'Volume derivative dv/dt = {volume_time_series.first_derivative[-1]}\n')
-    print(f"MACD line (now) = {macd_line[-1]}")
-    print(f"RSI (now) = {rsi[-1]}\n")
     
-    print(f"\033[9{mavg_color_code}mMoving averages (SMA, EMA) detected signal:\033[0m {mavg_signal}")
-    print(f"\033[9{dt_color_code}mDecision tree:\033[0m {action}, {interpretation}")
-    print(f"\033[9{macd_color_code}mMACD:\033[0m {macd_signal}, {macd_interpretation}")
-    print(f"\033[9{rsi_color_code}mRSI:\033[0m {rsi_signal}, {rsi_interpretation}\n")
+    # Report
+    print_trading_summary_mid_term(
+        name=name,
+        close=close,
+        sma50=sma50,
+        sma100=sma100,
+        ema20=ema20,
+        ema50=ema50,
+        close_time_series=close_time_series,
+        volume_time_series=volume_time_series,
+        macd_line=macd_line,
+        rsi=rsi,
+        mavg_signal=mavg_signal,
+        mavg_color_code=mavg_color_code,
+        action=action,
+        interpretation=interpretation,
+        dt_color_code=dt_color_code,
+        macd_signal=macd_signal,
+        macd_interpretation=macd_interpretation,
+        macd_color_code=macd_color_code,
+        rsi_signal=rsi_signal,
+        rsi_interpretation=rsi_interpretation,
+        rsi_color_code=rsi_color_code
+    )
     
+    # Return indicators
     return {
         "name" : name,
         "dates" : dates,
