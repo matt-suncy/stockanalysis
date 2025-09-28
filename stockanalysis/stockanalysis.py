@@ -67,10 +67,6 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
             - ema100 (np.array): EMA 100 values.
             - m (float): Slope of the linear regression line.
             - n (float): Intercept of the linear regression line.
-
-    Example:
-        >>> import yfinance as yf
-        >>> result = long_term_trading(yf.Ticker("AAPL"))
     """
     # Get data
     name = ticker.info['shortName']
@@ -180,10 +176,6 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
             - ema50 (np.array): EMA 50 values.
             - macd_line (np.array): MACD line values.
             - rsi (np.array): RSI values.
-
-    Example:
-        >>> import yfinance as yf
-        >>> result = mid_term_trading(yf.Ticker("MSFT"))
     """
     # Get data
     name = ticker.info['shortName']
@@ -194,7 +186,7 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     volume_time_series = TimeSeries(volume)
     
     # Indicators
-    sma50 = SMA(close_time_series.smooth_values, 50)
+    sma50 = SMA(close_time_series.values, 50)
     sma100 = SMA(close_time_series.values, 100)
     
     ema20 = EMA(close_time_series.values, 20)
@@ -254,7 +246,20 @@ def short_term_trading(ticker: yf.Ticker, period="2mo", interval="1d") -> None:
     - RSI
     - ATR
     """
-    pass
+    # Get data
+    name = ticker.info['shortName']
+    dates, close, volume = get_time_series(ticker, period, interval)
+    
+    # Time series
+    close_time_series = TimeSeries(close, 50)
+    volume_time_series = TimeSeries(volume)
+    
+    # Indicators
+    sma50 = SMA(close_time_series.smooth_values, 50)
+    sma100 = SMA(close_time_series.values, 100)
+    
+    ema20 = EMA(close_time_series.values, 20)
+    ema50 = EMA(close_time_series.values, 50)
 
 
 if __name__ == "__main__":
