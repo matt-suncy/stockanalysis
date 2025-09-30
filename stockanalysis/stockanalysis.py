@@ -67,6 +67,10 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
             - ema100 (np.array): EMA 100 values.
             - m (float): Slope of the linear regression line.
             - n (float): Intercept of the linear regression line.
+            - lr_code (int): Linear regression color code.
+            - lr_description (str): Description of the linear regression signal.
+            - mavg_code (int): Moving averages color code.
+            - mavg_description (str): Description of the moving averages signal.
     """
     # Get data
     name = ticker.info['shortName']
@@ -85,17 +89,9 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     ema50 = EMA(close_time_series.values, 50)
     ema100 = EMA(close_time_series.values, 100)
     
-    # Moving averages signal detection
-    signal, color_code = signal_moving_averages_long_term(sma100, sma200, ema50, ema100, close)
-    
-    # Report
-    print_trading_summary_long_term(
-        name=name, close=close,
-        sma100=sma100, sma200=sma200, 
-        ema50=ema50, ema100=ema100,
-        m=m, n=n,
-        signal=signal, color_code=color_code
-    )
+    # Signal detections
+    lr_code, lr_description = signal_linear_regression(m)
+    mavg_code, mavg_description = signal_moving_averages_long_term(sma100, sma200, ema50, ema100, close)
     
     # Return indicators
     return {
@@ -108,7 +104,11 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
         "ema50" : ema50,
         "ema100": ema100,
         "m" : m,
-        "n" : n
+        "n" : n,
+        "lr_code" : lr_code,
+        "lr_description": lr_description,
+        "mavg_code" : mavg_code,
+        "mavg_description": mavg_description
     }
 
 
@@ -176,6 +176,14 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
             - ema50 (np.array): EMA 50 values.
             - macd_line (np.array): MACD line values.
             - rsi (np.array): RSI values.
+            - mavg_code (int): Moving averages color code.
+            - mavg_description (str): Description of the moving averages signal.
+            - dt_code (int): Decision tree color code.
+            - dt_description (str): Description of the decision tree signal.
+            - macd_code (int): MACD color code.
+            - macd_description (str): Description of the MACD signal.
+            - rsi_code (int): RSI color code.
+            - rsi_description (str): Description of the RSI signal.
     """
     # Get data
     name = ticker.info['shortName']
@@ -196,28 +204,15 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     rsi = RSI(close_time_series.smooth_values)
     
     # Signal detections
-    mavg_signal, mavg_color_code = signal_moving_averages_mid_term(sma50, sma100, ema20, ema50, close)
+    mavg_code, mavg_description = moving_averages_signal_mid_term(sma50, sma100, ema20, ema50, close)
     
-    action, interpretation, dt_color_code = solve_decision_tree(
+    dt_code, dt_description = decision_tree_signal(
         close_time_series.first_derivative[-1],
         volume_time_series.first_derivative[-1]
     )
     
-    macd_signal, macd_interpretation, macd_color_code = macd_signal_mid_term(macd_line)
-    rsi_signal, rsi_interpretation, rsi_color_code = rsi_signal_mid_term(rsi)
-    
-    # Report
-    print_trading_summary_mid_term(
-        name=name, close=close,
-        sma50=sma50, sma100=sma100, ema20=ema20, ema50=ema50,
-        close_time_series=close_time_series, volume_time_series=volume_time_series,
-        macd_line=macd_line, rsi=rsi,
-        mavg_signal=mavg_signal, mavg_color_code=mavg_color_code,
-        action=action, interpretation=interpretation,
-        dt_color_code=dt_color_code,
-        macd_signal=macd_signal, macd_interpretation=macd_interpretation, macd_color_code=macd_color_code,
-        rsi_signal=rsi_signal, rsi_interpretation=rsi_interpretation, rsi_color_code=rsi_color_code
-    )
+    macd_code, macd_description = macd_signal_mid_term(macd_line)
+    rsi_code, rsi_description = rsi_signal_mid_term(rsi)
     
     # Return indicators
     return {
@@ -230,7 +225,15 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
         "ema20" : ema20,
         "ema50" : ema50,
         "macd_line" : macd_line,
-        "rsi" : rsi
+        "rsi" : rsi,
+        "mavg_code" : mavg_code,
+        "mavg_description" : mavg_description,
+        "dt_code" : dt_code,
+        "dt_description": dt_description,
+        "macd_code": macd_code,
+        "macd_description": macd_description,
+        "rsi_code" : rsi_code,
+        "rsi_description" : rsi_description
     }
     
     
@@ -270,16 +273,22 @@ if __name__ == "__main__":
     plt.ticks_color("white")
     
     # Parameters
-    print('')
-    
-    ticker_code = input('\033[1mEnter the ticker (e.g., AAPL for Apple):\033[0m ')
+    ticker_code = input('\n\033[1mEnter the ticker (e.g., AAPL for Apple):\033[0m ')
     ticker = yf.Ticker(ticker_code)
     name: str = ticker.info["shortName"]
     
     # Analysis
     dict_long = long_term_trading(ticker)
+    dict_mid = mid_term_trading(ticker)
+    
+    # Report
+    print("")
+    print(" \033[91m●\033[0m Sell")
+    print(" \033[92m●\033[0m Buy")
+    print(" \033[93m●\033[0m Hold")
+    
+    print_long_term_report(dict=dict_long)
     plot_long_term_trading(dict=dict_long)
     
-    dict_mid = mid_term_trading(ticker)
+    print_mid_term_report(dict=dict_mid)
     plot_mid_term_trading(dict=dict_mid)
-    

@@ -1,13 +1,46 @@
 import numpy as np
 
 
+ZERO_THRESHOLD: float = 0.01
+
+CODE_HOLD: int = 3
+CODE_BUY: int = 2
+CODE_SELL: int = 1
+
+
+def signal_linear_regression(m: float) -> tuple[int, str]:
+    """
+    Generates a trading signal based on the slope of a linear regression.
+
+    This function interprets the slope `m` of a linear regression line to 
+    determine a trading action. If the slope is close to zero (within the 
+    range defined by `ZERO_THRESHOLD`), the signal is to hold. Positive slopes 
+    indicate a buying opportunity, while negative slopes indicate a selling 
+    opportunity. Each action is mapped to a priority level represented by an 
+    integer.
+
+    Args:
+        m (float): The slope of the linear regression line.
+
+    Returns:
+        - code (int): A priority code (3 for "Hold", 2 for "Buy", 1 for "Sell").
+        - description (str): Description of the detected signal.
+    """
+    if -ZERO_THRESHOLD <= m < ZERO_THRESHOLD:
+        return CODE_HOLD, "no slope"
+    elif m > 0:
+        return CODE_BUY, "positive slope"
+    else:
+        return CODE_SELL, "negative slope"
+
+
 def signal_moving_averages_long_term(
     sma100: np.array, 
     sma200: np.array, 
     ema50: np.array, 
     ema100: np.array, 
     close: np.array
-    ) -> tuple[str, int]:
+    ) -> tuple[int, str]:
     """
     Generates long-term trading signals based on moving average crossovers and 
     price interactions with moving averages.
@@ -64,63 +97,43 @@ def signal_moving_averages_long_term(
         close (np.array): Closing price series.
 
     Returns:
-        tuple[str, int]: 
-            - signal (str): Trading signal ("Hold", "Buy", "Sell", 
-              "Golden Cross (Strong Buy)", "Death Cross (Strong Sell)").
-            - color_code (int): Encoded representation of the signal:
-                1 = Bearish (red),
-                2 = Bullish (green),
-                3 = Neutral / Hold (yellow).
-
-    Example:
-        >>> signal_moving_averages_long_term(sma100, sma200, ema50, ema100, close)
-        ('Golden Cross (Strong Buy)', 2)
+        - code (int): Encoded representation of the signal:
+            1 = Bearish (red),
+            2 = Bullish (green),
+            3 = Neutral / Hold (yellow).
+        - description (str): Description of the detected signal.
     """
-    # Signal detection
-    signal = "Hold"  # default
-    color_code = 3   # default
-    
     # Golden Cross / Death Cross
     if ema50[-2] < sma200[-2] and ema50[-1] > sma200[-1]:
-        signal = "Golden Cross (Strong Buy)"
-        color_code = 2
+        return CODE_BUY, "Golden Cross (strong buy)"
     elif ema50[-2] > sma200[-2] and ema50[-1] < sma200[-1]:
-        signal = "Death Cross (Strong Sell)"
-        color_code = 1
+        return CODE_SELL, "Death Cross (strong sell)"
     
     # Buy / Sell signals based on price crossing moving averages
     elif close[-2] < ema50[-2] and close[-1] > ema50[-1]:
-        signal = "Buy (price crossed above EMA 50)"
-        color_code = 2
+        return CODE_BUY, "price crossed above EMA 50"
     elif close[-2] > ema50[-2] and close[-1] < ema50[-1]:
-        signal = "Sell (price crossed below EMA 50)"
-        color_code = 1
+        return CODE_SELL, "price cross below EMA 50"
 
     elif close[-2] < ema100[-2] and close[-1] > ema100[-1]:
-        signal = "Buy (price crossed above EMA 100)"
-        color_code = 2
+        return CODE_BUY, "price crossed above EMA 100"
     elif close[-2] > ema100[-2] and close[-1] < ema100[-1]:
-        signal = "Sell (price crossed below EMA 100)"
-        color_code = 1
+        return CODE_SELL, "price crossed below EMA 100"
 
     elif close[-2] < sma100[-2] and close[-1] > sma100[-1]:
-        signal = "Buy (price crossed above SMA 100)"
-        color_code = 2
+        return CODE_BUY, "price crossed above SMA 100"
     elif close[-2] > sma100[-2] and close[-1] < sma100[-1]:
-        signal = "Sell (price crossed below SMA 100)"
-        color_code = 1
+        return CODE_SELL, "price crossed below SMA 100"
 
     elif close[-2] < sma200[-2] and close[-1] > sma200[-1]:
-        signal = "Buy (price crossed above SMA 200)"
-        color_code = 2
+        return CODE_BUY, "price crossed above SMA 200"
     elif close[-2] > sma200[-2] and close[-1] < sma200[-1]:
-        signal = "Sell (price crossed below SMA 200)"
-        color_code = 1
-        
-    return signal, color_code
+        return CODE_SELL, "price crossed below SMA 200"
+    
+    return CODE_HOLD, "no signal detected"
 
 
-def signal_moving_averages_mid_term(
+def moving_averages_signal_mid_term(
     sma50: np.array, 
     sma100: np.array, 
     ema20: np.array, 
@@ -183,65 +196,46 @@ def signal_moving_averages_mid_term(
         close (np.array): Closing price series.
 
     Returns:
-        tuple[str, int]:
-            - signal (str): Trading signal ("Hold", "Buy", "Sell", 
-              "Golden Cross (Strong Buy)", "Death Cross (Strong Sell)").
-            - color_code (int): Encoded representation of the signal:
-                1 = Bearish (red),
-                2 = Bullish (green),
-                3 = Neutral / Hold (yellow).
-
-    Example:
-        >>> signal_moving_averages_mid_term(sma50, sma100, ema20, ema50, close)
-        ('Buy (price crossed above EMA 20)', 2)
+        - code (int): Encoded representation of the signal:
+            1 = Bearish (red),
+            2 = Bullish (green),
+            3 = Neutral / Hold (yellow).
+        - description (str): Description of the detected signal.
     """
-    signal = 'Hold'
-    color_code = 3
-
     # Golden / Death Cross (EMA50 vs SMA100)
     if ema50[-2] < sma100[-2] and ema50[-1] > sma100[-1]:
-        signal = "Golden Cross (Strong Buy)"
-        color_code = 2
+        return CODE_BUY, "Golden Cross (strong buy)"
     elif ema50[-2] > sma100[-2] and ema50[-1] < sma100[-1]:
-        signal = "Death Cross (Strong Sell)"
-        color_code = 1
+        return CODE_SELL, "Death Cross (strong sell)"
 
     # Buy / Sell signals based on price crossing EMA50
     elif close[-2] < ema50[-2] and close[-1] > ema50[-1]:
-        signal = "Buy (price crossed above EMA 50)"
-        color_code = 2
+        return CODE_BUY, "price crossed above EMA 50"
     elif close[-2] > ema50[-2] and close[-1] < ema50[-1]:
-        signal = "Sell (price crossed below EMA 50)"
-        color_code = 1
+        return CODE_SELL, "price crossed below EMA 50"
 
     # Buy / Sell signals based on price crossing EMA20
     elif close[-2] < ema20[-2] and close[-1] > ema20[-1]:
-        signal = "Buy (price crossed above EMA 20)"
-        color_code = 2
+        return CODE_BUY, "price crossed above EMA 20"
     elif close[-2] > ema20[-2] and close[-1] < ema20[-1]:
-        signal = "Sell (price crossed below EMA 20)"
-        color_code = 1
+        return CODE_SELL, "price crossed below EMA 20"
 
     # Buy / Sell signals based on price crossing SMA50
     elif close[-2] < sma50[-2] and close[-1] > sma50[-1]:
-        signal = "Buy (price crossed above SMA 50)"
-        color_code = 2
+        return CODE_BUY, "price crossed above SMA 50"
     elif close[-2] > sma50[-2] and close[-1] < sma50[-1]:
-        signal = "Sell (price crossed below SMA 50)"
-        color_code = 1
+        return CODE_SELL, "price crossed below SMA 50"
 
     # Buy / Sell signals based on price crossing SMA100
     elif close[-2] < sma100[-2] and close[-1] > sma100[-1]:
-        signal = "Buy (price crossed above SMA 100)"
-        color_code = 2
+        return CODE_BUY, "price crossed above SMA 100"
     elif close[-2] > sma100[-2] and close[-1] < sma100[-1]:
-        signal = "Sell (price crossed below SMA 100)"
-        color_code = 1
+        return CODE_SELL, "price crossed below SMA 100"
         
-    return signal, color_code
+    return CODE_HOLD, "no signal detected"
 
 
-def solve_decision_tree(close_derivative: float, volume_derivative: float) -> tuple[str, str, int]:
+def decision_tree_signal(close_derivative: float, volume_derivative: float) -> tuple[int, str]:
     """
     Generates a trading decision based on the directional derivatives of 
     price (close) and trading volume.
@@ -293,41 +287,25 @@ def solve_decision_tree(close_derivative: float, volume_derivative: float) -> tu
         volume_derivative (float): Derivative of trading volume (participation slope).
 
     Returns:
-        tuple[str, str, int]:
-            - action (str): Suggested trading action ("Buy", "Sell", "Hold position").
-            - interpretation (str): Explanation of trend strength and direction.
-            - color_code (int): Encoded representation of the signal:
-                1 = Bearish (red),
-                2 = Bullish (green),
-                3 = Neutral / Hold (yellow).
-
-    Example:
-        >>> solve_decision_tree(0.05, 0.10)
-        ('Buy', 'strong trend', 2)
+        - code (int): Encoded representation of the signal:
+            1 = Bearish (red),
+            2 = Bullish (green),
+            3 = Neutral / Hold (yellow).
+        - description (str): Description of the detected signal.
     """
-    action = ''
-    interpretation = ''
-    color_code: int = 3
-
     if close_derivative > 0 and volume_derivative > 0:
-        color_code = 2
-        interpretation = 'strong trend'
-        action = 'Buy'
+        return CODE_BUY, "positive trend"
     elif close_derivative > 0 and volume_derivative < 0:
-        interpretation = 'weak trend'
-        action = 'Hold position'
+        return CODE_HOLD, "weak trend"
     elif close_derivative < 0 and volume_derivative > 0:
-        color_code = 1
-        interpretation = 'strong downward trend'
-        action = 'Sell'
+        return CODE_SELL, "negative trend"
     elif close_derivative < 0 and volume_derivative < 0:
-        interpretation = 'weak downward trend'
-        action = 'Hold position'
+        return CODE_HOLD, "weak_trend"
 
-    return action, interpretation, color_code
+    return CODE_HOLD, "weak_trend"
 
 
-def macd_signal_mid_term(macd_line: np.array) -> tuple[str, str, int]:
+def macd_signal_mid_term(macd_line: np.array) -> tuple[int, str]:
     """
     Interprets the MACD line to generate trading signals based on 
     momentum shifts and trend strength.
@@ -383,47 +361,28 @@ def macd_signal_mid_term(macd_line: np.array) -> tuple[str, str, int]:
         macd_line (np.array): Array of MACD line values.
 
     Returns:
-        tuple[str, str, int]:
-            - macd_signal (str): Suggested trading action ("Buy", "Sell", "Hold").
-            - macd_interpretation (str): Explanation of the MACD behavior.
-            - color_code (int): Encoded representation of the signal:
-                1 = Bearish (red),
-                2 = Bullish (green),
-                3 = Neutral / Hold (yellow).
-
-    Example:
-        >>> solve_macd(np.array([-0.2, 0.1]))
-        ('Buy', 'MACD crossed above zero → bullish momentum', 2)
+        - code (int): Encoded representation of the signal:
+            1 = Bearish (red),
+            2 = Bullish (green),
+            3 = Neutral / Hold (yellow).
+        - description (str): Description of the detected signal.
     """
-    # Interpret MACD
-    macd_signal = 'Hold'  # Default
-    macd_interpretation = 'Neutral momentum'
-    color_code = 3
-
     # Bullish signals    
     if macd_line[-2] < 0 and macd_line[-1] > 0:
-        macd_signal = "Buy"
-        macd_interpretation = "MACD crossed above zero → bullish momentum"
-        color_code = 2
+        return CODE_BUY, "MACD crossed above zero -> bullish momentum"
     elif macd_line[-1] > 0 and macd_line[-1] > macd_line[-2]:
-        macd_signal = "Buy"
-        macd_interpretation = "MACD positive and rising → bullish trend"
-        color_code = 2
+        return CODE_BUY, "MACD positive and rising -> bullish trend"
 
     # Bearish signals
     elif macd_line[-2] > 0 and macd_line[-1] < 0:
-        macd_signal = "Sell"
-        macd_interpretation = "MACD crossed below zero → bearish momentum"
-        color_code = 1
+        return CODE_SELL, "MACD crossed below zero -> bearish momentum"
     elif macd_line[-1] < 0 and macd_line[-1] < macd_line[-2]:
-        macd_signal = "Sell"
-        macd_interpretation = "MACD negative and falling → bearish trend"
-        color_code = 1
+        return CODE_SELL, "MACD negative and falling -> bearish trend"
         
-    return macd_signal, macd_interpretation, color_code
+    return CODE_HOLD, "no signal detected"
 
 
-def rsi_signal_mid_term(rsi: np.array) -> tuple[str, str, int]:
+def rsi_signal_mid_term(rsi: np.array) -> tuple[int, str]:
     """
     Interprets the Relative Strength Index (RSI) to generate trading signals 
     based on overbought and oversold conditions.
@@ -463,29 +422,15 @@ def rsi_signal_mid_term(rsi: np.array) -> tuple[str, str, int]:
         rsi (np.array): Array of RSI values (0–100 scale).
 
     Returns:
-        tuple[str, str, int]:
-            - rsi_signal (str): Suggested trading action ("Buy", "Sell", "Hold").
-            - rsi_interpretation (str): Explanation of RSI condition.
-            - color_code (int): Encoded representation of the signal:
-                1 = Bearish (red),
-                2 = Bullish (green),
-                3 = Neutral / Hold (yellow).
-
-    Example:
-        >>> rsi_signal(np.array([45, 72]))
-        ('Sell', 'RSI > 70 → Overbought, possible sell signal', 1)
+        - code (int): Encoded representation of the signal:
+            1 = Bearish (red),
+            2 = Bullish (green),
+            3 = Neutral / Hold (yellow).
+        - description (str): Description of the detected signal.
     """
-    rsi_signal = "Hold"
-    rsi_interpretation = "RSI neutral"
-    color_code = 3
-
     if rsi[-1] > 70:
-        rsi_signal = "Sell"
-        rsi_interpretation = "RSI > 70 → Overbought, possible sell signal"
-        color_code = 1
+        return CODE_SELL, "RSI > 70 -> Overbought, possible sell signal"
     elif rsi[-1] < 30:
-        rsi_signal = "Buy"
-        rsi_interpretation = "RSI < 30 → Oversold, possible buy signal"
-        color_code = 2
+        return CODE_BUY, "RSI < 30 -> Oversold, possible buy signal"
         
-    return rsi_signal, rsi_interpretation, color_code
+    return CODE_HOLD, "no signal detected"
