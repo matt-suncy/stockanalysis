@@ -30,10 +30,15 @@ def get_time_series(ticker: yf.Ticker, period: str, interval: str) -> tuple[any]
     df = ticker.history(period=period, interval=interval)
     
     dates = df.index
+    
+    open: np.array = df["Open"].to_numpy()
+    high: np.array = df["High"].to_numpy()
+    low: np.array = df["Low"].to_numpy()
+    
     close: np.array = df["Close"].to_numpy()
     volume: np.array = df["Volume"].to_numpy()
     
-    return dates, close, volume
+    return dates, open, high, low, close, volume
 
 
 def low_pass(time_series: np.array, window_size=3) -> np.array:

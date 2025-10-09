@@ -74,7 +74,7 @@ def long_term_trading(ticker: yf.Ticker, period="2y", interval="1d") -> None:
     """
     # Get data
     name = ticker.info['shortName']
-    dates, close, volume = get_time_series(ticker, period, interval)
+    dates, _, _, _, close, volume = get_time_series(ticker, period, interval)
     
     # Time series
     close_time_series = TimeSeries(close, 100)
@@ -187,7 +187,7 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     """
     # Get data
     name = ticker.info['shortName']
-    dates, close, volume = get_time_series(ticker, period, interval)
+    dates, _, _, _, close, volume = get_time_series(ticker, period, interval)
     
     # Time series
     close_time_series = TimeSeries(close, 50)
@@ -238,31 +238,20 @@ def mid_term_trading(ticker: yf.Ticker, period="18mo", interval="1d") -> None:
     
     
 def short_term_trading(ticker: yf.Ticker, period="2mo", interval="1d") -> None:
-    """
-    - Close and Volume
-    - Close and Volume derivatives
-    - Decision tree
-    - SMA
-    - SMA
-    - EMA
-    - EMA
-    - RSI
-    - ATR
-    """
     # Get data
     name = ticker.info['shortName']
-    dates, close, volume = get_time_series(ticker, period, interval)
+    dates, open, high, low, close, volume = get_time_series(ticker, period, interval)
     
     # Time series
     close_time_series = TimeSeries(close, 50)
     volume_time_series = TimeSeries(volume)
     
     # Indicators
-    sma50 = SMA(close_time_series.smooth_values, 50)
-    sma100 = SMA(close_time_series.values, 100)
+    sma10 = SMA(close_time_series.values, 10)
+    sma20 = SMA(close_time_series.values, 20)
     
-    ema20 = EMA(close_time_series.values, 20)
-    ema50 = EMA(close_time_series.values, 50)
+    ema5 = EMA(close_time_series.values, 5)
+    ema10 = EMA(close_time_series.values, 10)
 
 
 if __name__ == "__main__":
