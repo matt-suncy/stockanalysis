@@ -1,2 +1,4 @@
 .vscode
+.venv
+useful_commands.txt
 stockanalysis/__pycache__
