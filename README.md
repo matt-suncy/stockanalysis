@@ -1,7 +1,7 @@
 # stockanalysis
 This project provides a Python-based toolkit for `financial market analysis` using data from Yahoo Finance.
 
-It helps investors and traders make more informed decisions by applying `technical indicators`, `trend analysis`, and `signal detection` on historical price and volume data.
+Using this as a toy project to learn time series analysis (at least that's it for now...)
 
 ## Screenshots
 ![](img/1.png)
